@@ -210,7 +210,7 @@ def filterNCBI_data(df,file_name, database):
     now = datetime.now()
     now_str = now.strftime("%Y/%m/%d")
     for index, row in df.iterrows():
-        if row[0] in ignore_acc or fnmatch.fnmatch(row[0], '[CFHOU]*') or fnmatch.fnmatch(row[0], '[0-9]*'):
+        if row[0] in ignore_acc or fnmatch.fnmatch(row[0], '[CFHOU]*') or fnmatch.fnmatch(row[0], '[0-9]*') or len(row[0]) < 8:
             continue
         if row[1] == now_str:
             continue
