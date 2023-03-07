@@ -1,6 +1,6 @@
 ﻿# INSDC SARS-CoV-2 Dataflow Tracking Workflow
 
-  `This script needs to be run through the EBI VPN`
+  `This script needs to be run through EBI VPN`
 
 The workflow in this repository are created using Snakemake workflow management system to monitor the SARS-CoV-2 dataflow between INSDC (NCBI and DDBJ) and ENA.
 
