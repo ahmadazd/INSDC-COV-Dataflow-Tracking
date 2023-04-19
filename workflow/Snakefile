@@ -1,23 +1,11 @@
 configfile: "...../config/config_workflow.yaml"
 
 ##### load rules #####
-include: "rules/create_dir.smk"
 include: "rules/fetch_data.smk"
 include: "rules/data_analysis.smk"
 include: "rules/emailer.smk"
 
 ##### target rules ######
-import glob
-import os.path
-import datetime
-import os
-import sys
-
-output_dir = config["output_dir"]
-now = datetime.datetime.now()
-now_str = now.strftime("%d%m%y")
-outdir = f"{output_dir}/databases_logs_{now_str}"
-
 rule all:
-	input: expand("{outdir}/sent.txt", outdir=outdir)
+	input: expand("{latest_folder}/sent.txt", latest_folder=latest_folder)
 

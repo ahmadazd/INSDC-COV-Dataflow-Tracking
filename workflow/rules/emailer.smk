@@ -2,7 +2,7 @@ rule emailer:
 	input:
 		expand("{latest_folder}/end_final.txt", latest_folder=latest_folder)
 	output:
-		expand("{outdir}/sent.txt", outdir=outdir)
+		expand("{latest_folder}/sent.txt", latest_folder=latest_folder)
 
 	resources:
 		mem_mb = 5048,
