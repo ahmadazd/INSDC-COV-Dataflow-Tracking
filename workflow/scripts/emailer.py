@@ -16,18 +16,7 @@ import smtplib, ssl
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import argparse, hashlib, os, subprocess, sys, time, getpass, smtplib, ssl
-import sys
-import shlex
-import subprocess
-import requests, sys
-import re
-import requests
-import json
 from datetime import datetime
-import cx_Oracle
-from getpass import getpass
-import collections
-import numpy as np
 import pandas as pd
 import shutil
 import fnmatch
@@ -44,7 +33,6 @@ This script is used to analyse the data from NCBI and ENA that been produced by 
 parser.add_argument('-f', '--file', help='path for the input files', type=str, required=True)
 parser.add_argument('-g', '--ignore', help='list of accession to be ignored in ENAPRO and ERAPRO calculations', type=str, required=True)
 parser.add_argument('-c', '--config', help='config file path', type=str, required=True)
-parser.add_argument('-t', '--transfer', help='a destination path of a copy of the filtered sequence accessions', type=str, required=False)
 args = parser.parse_args()
 
 
@@ -154,11 +142,28 @@ def message(adv_reads,NCBI_reads,adv_seq,NCBI_seq,portal_reads,portal_seq,ebi_re
         inSQL = inERAPRO
         noSQL = noERAPRO
         NCBI_vs_adv = NCBI_vs_adv_reads
+        if len(noSQL) > (len(NCBI_data) * 0.1/100):
+            NCBI_vs_adv_critical = f"High missing read numbers from AdvancedSearch API comparing to NCBI: {len(noSQL)}; \n (Please see below for details)"
+        else:
+            NCBI_vs_adv_critical = None
         adv_vs_ebi = adv_vs_ebi_reads
         ebi_vs_adv = ebi_vs_adv_reads
+        if len(ebi_vs_adv) > (len(adv_search) * 10/100):
+            ebi_vs_adv_critical = f"High missing read numbers from EBIsearch API : {len(ebi_vs_adv)}"
+        else:
+            ebi_vs_adv_critical = None
         portal_duplicates = portal_duplicate_reads
+        if len(portal_duplicates) > 0 :
+            duplicate_critical = f"Duplicated read data found in COVID-19 data Portal: {len(portal_duplicates)}"
+        else:
+            duplicate_critical = None
         portal_vs_adv = portal_vs_adv_reads
+        if len(portal_vs_adv) > (len(adv_search) * 10/100):
+            portal_vs_adv_critical = f"High missing read numbers from Portal API:  {len(portal_vs_adv)}"
+        else:
+            portal_vs_adv_critical = None
         missing_list_report = f'The remaining accessions -if exist- will be reported'
+
     else:
         NCBI_database = 'Nucleotide database'
         NCBI_data = NCBI_seq
@@ -168,14 +173,38 @@ def message(adv_reads,NCBI_reads,adv_seq,NCBI_seq,portal_reads,portal_seq,ebi_re
         inSQL = inENAPRO
         noSQL = noENAPRO
         NCBI_vs_adv = NCBI_vs_adv_seq
+        if len(noSQL) > (len(NCBI_data) * 0.1/100):
+            NCBI_vs_adv_critical = f"High missing sequence numbers from AdvancedSearch API comparing to NCBI: {len(noSQL)}; \n (Please see below for details)"
+        else:
+            NCBI_vs_adv_critical = None
         adv_vs_ebi = adv_vs_ebi_seq
         ebi_vs_adv = ebi_vs_adv_seq
+        if len(ebi_vs_adv) > (len(adv_search) * 10/100):
+            ebi_vs_adv_critical = f"High missing sequence numbers from EBIsearch API : {len(ebi_vs_adv)}"
+        else:
+            ebi_vs_adv_critical = None
         portal_duplicates = portal_duplicate_seq
+        if len(portal_duplicates) > 0 :
+            duplicate_critical = f"Duplicated sequence data found in COVID-19 data Portal : {len(portal_duplicates)}"
+        else:
+            duplicate_critical = None
         portal_vs_adv = portal_vs_adv_seq
+        if len(portal_vs_adv) > (len(adv_search) * 10/100):
+            portal_vs_adv_critical = f"High missing sequence numbers from Portal API:  {len(portal_vs_adv)}"
+        else:
+            portal_vs_adv_critical = None
         missing_list_report= f'The remaining accessions list has been sent to /nfs/production/cochrane/ena/covid19/missing-records (CODON) to be investigated '
 
-
+    if any([NCBI_vs_adv_critical, portal_vs_adv_critical, duplicate_critical, ebi_vs_adv_critical]):
+        critical_msg = f'''Critical Issues:
+    {'' if NCBI_vs_adv_critical is None else f"{NCBI_vs_adv_critical}"}
+    {'' if portal_vs_adv_critical is None else f"{portal_vs_adv_critical}"}
+    {'' if duplicate_critical is None else f"{duplicate_critical}"}
+    {'' if ebi_vs_adv_critical is None else f"{ebi_vs_adv_critical}"}'''
+    else:
+        critical_msg = ''
     msg= f'''
+{critical_msg}
 For {database} data: 
 -------------------------------------------------------------------------------------------------------------------------------------
 General 
@@ -210,7 +239,7 @@ def filterNCBI_data(df,file_name, database):
     now = datetime.now()
     now_str = now.strftime("%Y/%m/%d")
     for index, row in df.iterrows():
-        if row[0] in ignore_acc or fnmatch.fnmatch(row[0], '[CFHOU]*') or fnmatch.fnmatch(row[0], '[0-9]*') or len(row[0]) < 8:
+        if row[0] in ignore_acc or fnmatch.fnmatch(row[0].strip(), '^[A-Za-z]{6}[0-9]{2}+0+|^[A-Za-z]{4}[0-9]{2}+0+') or fnmatch.fnmatch(row[0], '[0-9]*') or len(row[0]) < 8:
             continue
         if row[1] == now_str:
             continue
@@ -220,9 +249,8 @@ def filterNCBI_data(df,file_name, database):
     df_filter = pd.DataFrame(data)
     now_str = now.strftime("%d%m%y")
     df_filter.to_csv(f"{args.file}/{file_name}_{now_str}.txt", index=False)
-    if args.transfer:
-        if database == 'sequences':
-            shutil.copy(f"{args.file}/{file_name}_{now_str}.txt", args.transfer)
+    if database == 'sequences':
+        shutil.copy(f"{args.file}/{file_name}_{now_str}.txt", f"/nfs/production/cochrane/ena/covid19/missing-records/")
 
     return df_filter
 
