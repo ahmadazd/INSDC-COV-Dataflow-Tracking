@@ -162,7 +162,7 @@ def ebisearch_data_fetching(database):
     if database == 'sequences':
         database = 'embl-covid19'
     elif database == 'reads':
-        database = 'sra-experiment-covid19'
+        database = 'sra-experiment'
         date = 'first_public'
 
     print('PROCESSING DATA FROM EBI SEARCH...................................................................')
