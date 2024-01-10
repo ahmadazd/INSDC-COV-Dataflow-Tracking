@@ -156,14 +156,15 @@ def covid19portal_data_fetching(database):
 
 
 
+
 # Creating the script for fetching data from ebisearch in ENA
 def ebisearch_data_fetching(database):
-    date = 'creation_date'
     if database == 'sequences':
         database = 'embl-covid19'
+        date = 'creation_date'
     elif database == 'reads':
         database = 'sra-experiment'
-        date = 'first_public'
+        date = 'first_public_date'
 
     print('PROCESSING DATA FROM EBI SEARCH...................................................................')
 
@@ -171,16 +172,16 @@ def ebisearch_data_fetching(database):
     now = datetime.datetime.now()
     start = datetime.datetime(2020, 1, 1)
     delta = relativedelta(months=1)
+    start_item = '0'
     while start <= now:
-        start_item = 0
-        year=start.strftime("%Y")
-        month =start.strftime("%m")
+        #year=start.strftime("%Y")
+        #month =start.strftime("%m")
         start += delta
-        while start_item >= 0:
+        while len(start_item) > 0:
             server = "http://www.ebi.ac.uk/ebisearch/ws/rest"
-            ext = "/{}?query=TAXON:{} AND {}:{}-{}&fields=acc,{}&format=json&size=1000&start={}".format(database, tax_fetch[0],date,year,month, date, start_item)
-            start_item = start_item + 1000
+            ext = "/{}?query=tag%3Acovid19&size=1000&fields=acc,{}&sort={}:ascending&format=json&searchposition={}".format(database,date,date,start_item)
             command = requests.get(server + ext, headers={"Content-Type": "application/json"})
+            print(ext)
             status = command.status_code
             if status in [400, 500]:
                 if status == 500:
@@ -189,6 +190,12 @@ def ebisearch_data_fetching(database):
                 break
             else:
                 data = json.loads(command.content)
+                if 'searchPosition' in data:
+                    start_item = data["searchPosition"]
+                    print(start_item)
+                else:
+                    # No search position returned - download is complete
+                    start_item = ''
                 jsonData = data["entries"]
                 if start == '2020-02-01 00:00:00':
                     f = open(f"{outdir}/{'EBIsearch'}.{database}.log.txt", "w")
